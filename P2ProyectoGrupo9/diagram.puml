@@ -1,0 +1,203 @@
+@startuml CatalogoPeliculas
+
+' Configuración ultra-compacta
+skinparam backgroundColor #FFFFFF
+skinparam classBackgroundColor #FAFAFA
+skinparam classBorderColor #2C3E50
+skinparam packageBackgroundColor #F5F5F5
+skinparam packageBorderColor #34495E
+skinparam arrowColor #34495E
+skinparam shadowing false
+skinparam roundcorner 3
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 30
+skinparam classFontSize 10
+skinparam packageFontSize 11
+skinparam defaultFontSize 9
+skinparam padding 2
+skinparam ArrowThickness 0.7
+
+' ═══════════════════════════════════════
+'                  MODELO
+' ═══════════════════════════════════════
+
+package "Modelo" #E8F5E9 {
+    class Pelicula {
+        - titulo, director, genero : String
+        - anio : int
+        - sinopsis : String
+    }
+    
+    class Nodo {
+        - dato : Pelicula
+        - siguiente : Nodo
+    }
+    
+    class ListaEnlazada {
+        - cabeza : Nodo
+        - tamanio : int
+        + insertar/eliminar/buscar()
+        + buscarPorTituloAproximado()
+        + ordenar(Comparator)
+        - distanciaLevenshtein()
+    }
+    
+    class Pila {
+        - lista : ListaEnlazada
+        + apilar/desapilar()
+        + verTope()
+    }
+    
+    class Cola {
+        - lista : ListaEnlazada
+        + encolar/desencolar()
+        + verFrente()
+    }
+    
+    class PersistenciaPeliculasJSON <<static>> {
+        - {static} GSON, DATA_PATH
+        + {static} guardar/cargarEn()
+        + {static} ordenarPorCampo()
+        + {static} limpiarTemporales()
+        - {static} mezclaNatural()
+        - {static} dividirEnCorridas()
+        - {static} fusionarCorridas()
+    }
+    
+    enum Campo {
+        TITULO, DIRECTOR
+        ANIO, GENERO
+    }
+}
+
+' ═══════════════════════════════════════
+'                  VISTA
+' ═══════════════════════════════════════
+
+package "Vista" #E3F2FD {
+    class VentanaPrincipal {
+        + panelFormulario/Lista/Estado
+    }
+    
+    class PanelFormulario {
+        + txt campos : JTextField/JTextArea
+        + btn acciones : JButton
+        + limpiarFormulario()
+    }
+    
+    class PanelLista {
+        + tablaPeliculas : JTable
+        + txtBuscar, cmbBuscarPor
+        + btnOrdenar x4 : JButton
+        + filterTable()
+    }
+    
+    class PanelEstado {
+        + lbl contadores : JLabel
+        + txtAreaLog : JTextArea
+        + actualizarContadores()
+        + registrarAccion()
+    }
+    
+    class DialogoDemoEstructuras {
+        + panelPila/Cola
+    }
+    
+    class PanelPila {
+        + lista, botones
+        + actualizarVista()
+    }
+    
+    class PanelCola {
+        + lista, botones
+        + actualizarVista()
+    }
+}
+
+' ═══════════════════════════════════════
+'               CONTROLADOR
+' ═══════════════════════════════════════
+
+package "Controlador" #FFF9C4 {
+    class ControladorPelicula {
+        - vista, modelo, pila, cola
+        + listeners (ActionEvent, etc)
+        - guardarPelicula() [C+U]
+        - valueChanged() [R]
+        - eliminarPelicula() [D]
+        - mover/ordenar/filtrar()
+        - actualizarTabla/Contadores()
+    }
+}
+
+' ═══════════════════════════════════════
+'                   APP
+' ═══════════════════════════════════════
+
+package "App" #FFE0E0 {
+    class Main {
+        + {static} main(String[])
+    }
+}
+
+' ═══════════════════════════════════════
+'               RELACIONES
+' ═══════════════════════════════════════
+
+' Modelo - Estructura de Datos
+ListaEnlazada "1" o-- "0..*" Nodo : contiene >
+Nodo "1" *-- "1" Pelicula : almacena >
+Pila "1" *-- "1" ListaEnlazada : usa >
+Cola "1" *-- "1" ListaEnlazada : usa >
+
+' Modelo - Persistencia
+PersistenciaPeliculasJSON ..> ListaEnlazada : guarda/carga >
+PersistenciaPeliculasJSON ..> Pelicula : serializa >
+PersistenciaPeliculasJSON ..> Campo : usa >
+ListaEnlazada ..> Pelicula : gestiona >
+
+' Vista - Composición
+VentanaPrincipal *-- PanelFormulario
+VentanaPrincipal *-- PanelLista
+VentanaPrincipal *-- PanelEstado
+DialogoDemoEstructuras *-- PanelPila
+DialogoDemoEstructuras *-- PanelCola
+
+' Controlador - MVC
+ControladorPelicula --> VentanaPrincipal : controla >
+ControladorPelicula --> ListaEnlazada : manipula >
+ControladorPelicula --> Pila : manipula >
+ControladorPelicula --> Cola : manipula >
+ControladorPelicula ..> DialogoDemoEstructuras : crea >
+ControladorPelicula ..> PersistenciaPeliculasJSON : usa >
+ControladorPelicula ..> Campo : usa >
+
+' Main - Punto de Entrada
+Main ..> VentanaPrincipal : instancia >
+Main ..> ListaEnlazada : instancia >
+Main ..> Pila : instancia >
+Main ..> Cola : instancia >
+Main ..> ControladorPelicula : instancia >
+Main ..> PersistenciaPeliculasJSON : carga inicial >
+
+' ═══════════════════════════════════════
+'                 NOTAS
+' ═══════════════════════════════════════
+
+note right of PersistenciaPeliculasJSON
+  <b>Mezcla Natural</b>
+  JSONL + external sort
+  dividir→fusionar→limpiar
+end note
+
+note bottom of ControladorPelicula
+  <b>Patrón MVC + CRUD Completo</b>
+  • Create: insertar (inicio/final)
+  • Read: selección + llenar formulario
+  • Update: eliminar antiguo + reinsertar
+  • Delete: eliminar + apilar en Pila
+  Coordina Vista↔Modelo con listeners
+end note
+
+@enduml
